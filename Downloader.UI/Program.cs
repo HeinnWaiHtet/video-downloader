@@ -33,11 +33,12 @@ builder.Services.AddSingleton(_ =>
     var adapterRegistry = new AdapterRegistry(new ISiteAdapter[]
     {
         new YouTubeAdapter(),
-        new FacebookAdapter()
+        new FacebookAdapter(),
+        new GenericSiteAdapter()
     });
 
     var engine = new HybridDownloadEngine(new DirectDownloadEngine(), new YtDlpDownloadEngine());
-    var compliance = new ComplianceValidator(new[] { "youtube", "facebook" });
+    var compliance = new ComplianceValidator(new[] { "youtube", "facebook", "generic" });
     return new DownloadCoordinator(adapterRegistry, engine, compliance);
 });
 
@@ -67,7 +68,8 @@ app.MapPost("/api/probe", async (ProbeUiRequest request, DownloadCoordinator coo
         return Results.BadRequest(new { ok = false, error = "Invalid URL." });
     }
 
-    var result = await coordinator.DetectAsync(new PageContext(uri, request.PageTitle), CancellationToken.None);
+    var normalizedUri = NormalizeSourceUri(uri, null);
+    var result = await coordinator.DetectAsync(new PageContext(normalizedUri, request.PageTitle), CancellationToken.None);
     if (!result.IsSupported || result.MediaInfo is null)
     {
         return Results.BadRequest(new { ok = false, error = result.UnsupportedReason ?? "Unsupported or blocked." });
@@ -94,6 +96,7 @@ app.MapPost("/api/download-start", (DownloadUiRequest request, DownloadCoordinat
         return Results.BadRequest(new { ok = false, error = "Invalid URL." });
     }
 
+    var normalizedUri = NormalizeSourceUri(uri, request.Site);
     if (IsHostedMode() && IsCloudBlockedSite(request.Site))
     {
         return Results.BadRequest(new
@@ -118,7 +121,7 @@ app.MapPost("/api/download-start", (DownloadUiRequest request, DownloadCoordinat
             Console.WriteLine($"[UI-DL {sessionId}] Starting url={request.Url} format={request.SelectedFormatId}");
 
             var downloadRequest = new DownloadRequest(
-                SourceUrl: uri,
+                SourceUrl: normalizedUri,
                 Site: request.Site,
                 SelectedFormatId: string.IsNullOrWhiteSpace(request.SelectedFormatId) ? "best" : request.SelectedFormatId,
                 OutputPath: outputPath,
@@ -206,7 +209,25 @@ static string ResolveOutputPath(string? requestedPath)
 {
     if (IsHostedMode())
     {
-        return Path.Combine(Path.GetTempPath(), "authorized-downloader");
+        var hostedRoot = Path.Combine(Path.GetTempPath(), "authorized-downloader");
+        if (string.IsNullOrWhiteSpace(requestedPath))
+        {
+            return hostedRoot;
+        }
+
+        var value = requestedPath.Trim();
+        if (value.StartsWith("virtual:", StringComparison.OrdinalIgnoreCase))
+        {
+            var name = SanitizeFolderName(value["virtual:".Length..]);
+            return Path.Combine(hostedRoot, name);
+        }
+
+        if (Path.IsPathRooted(value) && value.StartsWith("/tmp/", StringComparison.Ordinal))
+        {
+            return value;
+        }
+
+        return Path.Combine(hostedRoot, SanitizeFolderName(value));
     }
 
     if (!string.IsNullOrWhiteSpace(requestedPath))
@@ -234,6 +255,18 @@ static string ResolveOutputPath(string? requestedPath)
     return Path.Combine(Path.GetTempPath(), "authorized-downloader");
 }
 
+static string SanitizeFolderName(string value)
+{
+    var result = string.IsNullOrWhiteSpace(value) ? "downloads" : value.Trim();
+    foreach (var c in Path.GetInvalidFileNameChars())
+    {
+        result = result.Replace(c, '_');
+    }
+
+    result = result.Replace('/', '_').Replace('\\', '_');
+    return string.IsNullOrWhiteSpace(result) ? "downloads" : result;
+}
+
 static string BuildFriendlyDownloadError(string rawMessage, ConcurrentQueue<string> logs)
 {
     var lines = logs.ToArray();
@@ -250,6 +283,87 @@ static string BuildFriendlyDownloadError(string rawMessage, ConcurrentQueue<stri
     }
 
     return rawMessage;
+}
+
+static Uri NormalizeSourceUri(Uri source, string? siteHint)
+{
+    var isFacebook = string.Equals(siteHint, "facebook", StringComparison.OrdinalIgnoreCase)
+        || source.Host.Contains("facebook.com", StringComparison.OrdinalIgnoreCase)
+        || source.Host.Equals("fb.watch", StringComparison.OrdinalIgnoreCase);
+    if (!isFacebook)
+    {
+        return source;
+    }
+
+    var shareUrl = TryGetQueryParam(source, "share_url");
+    if (!string.IsNullOrWhiteSpace(shareUrl))
+    {
+        var decoded = Uri.UnescapeDataString(shareUrl);
+        if (Uri.TryCreate(decoded, UriKind.Absolute, out var sharedUri))
+        {
+            return NormalizeSourceUri(sharedUri, "facebook");
+        }
+    }
+
+    var reelId = TryExtractPathSegment(source.AbsolutePath, "reel");
+    if (!string.IsNullOrWhiteSpace(reelId))
+    {
+        return new Uri($"https://www.facebook.com/reel/{reelId}");
+    }
+
+    var watchId = TryGetQueryParam(source, "v");
+    if (!string.IsNullOrWhiteSpace(watchId))
+    {
+        return new Uri($"https://www.facebook.com/watch/?v={watchId}");
+    }
+
+    return source;
+}
+
+static string? TryGetQueryParam(Uri uri, string key)
+{
+    if (string.IsNullOrWhiteSpace(uri.Query))
+    {
+        return null;
+    }
+
+    var query = uri.Query.TrimStart('?');
+    var pairs = query.Split('&', StringSplitOptions.RemoveEmptyEntries);
+    foreach (var pair in pairs)
+    {
+        var index = pair.IndexOf('=');
+        if (index < 0)
+        {
+            continue;
+        }
+
+        var name = pair[..index];
+        if (!string.Equals(name, key, StringComparison.OrdinalIgnoreCase))
+        {
+            continue;
+        }
+
+        return pair[(index + 1)..];
+    }
+
+    return null;
+}
+
+static string? TryExtractPathSegment(string path, string segmentName)
+{
+    var segments = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
+    for (var i = 0; i < segments.Length - 1; i++)
+    {
+        if (!string.Equals(segments[i], segmentName, StringComparison.OrdinalIgnoreCase))
+        {
+            continue;
+        }
+
+        var value = segments[i + 1];
+        return string.IsNullOrWhiteSpace(value) ? null : value;
+    }
+
+    return null;
 }
 
 static async Task<PickFolderResult> TryPickFolderAsync(string? initialPath)

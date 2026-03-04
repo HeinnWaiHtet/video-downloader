@@ -97,6 +97,14 @@ const clearForm = () => {
 };
 
 const isBrowserFolderLabel = (value) => (value || "").trim().startsWith(BROWSER_FOLDER_PREFIX);
+const getBrowserFolderName = (value) => {
+  const text = (value || "").trim();
+  if (!text.startsWith(BROWSER_FOLDER_PREFIX)) {
+    return "";
+  }
+
+  return text.slice(BROWSER_FOLDER_PREFIX.length).trim();
+};
 
 const loadVideo = async () => {
   const url = (urlInput.value || "").trim();
@@ -179,11 +187,6 @@ const startPolling = () => {
 };
 
 browseBtn.addEventListener("click", async () => {
-  if (state.hostedMode) {
-    setDownloadStatus("Cloud mode: files save on server. Local folder browse is not available.", true);
-    return;
-  }
-
   browseBtn.disabled = true;
   try {
     if (typeof window.showDirectoryPicker === "function") {
@@ -240,6 +243,10 @@ downloadBtn.addEventListener("click", async () => {
     outputPath: state.hostedMode ? "" : (isBrowserFolderLabel(folderInput.value) ? "" : (folderInput.value || "").trim()),
     filenameTemplate: (nameInput.value || "").trim() || "video"
   };
+  if (state.hostedMode) {
+    const folderName = getBrowserFolderName(folderInput.value);
+    payload.outputPath = folderName ? `virtual:${folderName}` : (folderInput.value || "").trim();
+  }
 
   downloadBtn.disabled = true;
   setDownloadStatus("Starting download...");
@@ -298,9 +305,9 @@ const initMode = async () => {
     if (state.hostedMode) {
       folderInput.value = state.serverOutputFolder || "Server temp folder";
       folderInput.readOnly = true;
-      browseBtn.disabled = true;
-      browseBtn.title = "Cloud mode does not support local folder picker.";
-      setDownloadStatus("Cloud mode active: files are saved on the server.", false);
+      browseBtn.disabled = false;
+      browseBtn.title = "Choose folder label for server-side saved files.";
+      setDownloadStatus("Cloud mode active: selected folder name maps to server storage.", false);
     }
   } catch {
     // Ignore health check issues for initial render.
