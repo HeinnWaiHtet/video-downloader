@@ -21,6 +21,15 @@ const resultModal = document.getElementById("resultModal");
 const resultTitle = document.getElementById("resultTitle");
 const resultMessage = document.getElementById("resultMessage");
 const resultOkBtn = document.getElementById("resultOkBtn");
+const browserFolderInput = document.createElement("input");
+browserFolderInput.type = "file";
+browserFolderInput.multiple = true;
+browserFolderInput.setAttribute("webkitdirectory", "");
+browserFolderInput.setAttribute("directory", "");
+browserFolderInput.style.display = "none";
+document.body.appendChild(browserFolderInput);
+
+const BROWSER_FOLDER_PREFIX = "Browser folder:";
 
 const setLogs = (lines) => {
   logs.textContent = (lines || []).join("\n") || "No logs yet.";
@@ -84,6 +93,8 @@ const clearForm = () => {
   downloadBtn.disabled = false;
   hideResultModal();
 };
+
+const isBrowserFolderLabel = (value) => (value || "").trim().startsWith(BROWSER_FOLDER_PREFIX);
 
 const loadVideo = async () => {
   const url = (urlInput.value || "").trim();
@@ -166,23 +177,41 @@ const startPolling = () => {
 browseBtn.addEventListener("click", async () => {
   browseBtn.disabled = true;
   try {
-    const res = await fetch("/api/pick-folder", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ initialPath: folderInput.value || null })
-    });
-
-    const data = await res.json();
-    if (!res.ok || !data.ok) {
-      throw new Error(data.error || "Folder selection failed.");
+    if (typeof window.showDirectoryPicker === "function") {
+      try {
+        const handle = await window.showDirectoryPicker();
+        folderInput.value = `${BROWSER_FOLDER_PREFIX} ${handle.name}`;
+        setDownloadStatus("Folder selected in browser.", false);
+      } catch (error) {
+        if (error?.name !== "AbortError") {
+          setDownloadStatus("Folder selection cancelled or unavailable.", true);
+        }
+      }
+      return;
     }
 
-    folderInput.value = data.path || "";
-  } catch (error) {
-    setDownloadStatus(error.message || "Folder selection failed.", true);
+    if ("webkitdirectory" in browserFolderInput) {
+      browserFolderInput.value = "";
+      browserFolderInput.click();
+      return;
+    }
+
+    setDownloadStatus("Folder picker is not supported in this browser.", true);
   } finally {
     browseBtn.disabled = false;
   }
+});
+
+browserFolderInput.addEventListener("change", () => {
+  const first = browserFolderInput.files?.[0];
+  if (!first) {
+    return;
+  }
+
+  const rel = first.webkitRelativePath || "";
+  const folderName = rel.split("/").filter(Boolean)[0] || "Selected";
+  folderInput.value = `${BROWSER_FOLDER_PREFIX} ${folderName}`;
+  setDownloadStatus("Folder selected in browser.", false);
 });
 
 downloadBtn.addEventListener("click", async () => {
@@ -195,7 +224,7 @@ downloadBtn.addEventListener("click", async () => {
     url: (urlInput.value || "").trim(),
     site: state.site,
     selectedFormatId: qualitySelect.value || "best",
-    outputPath: (folderInput.value || "").trim(),
+    outputPath: isBrowserFolderLabel(folderInput.value) ? "" : (folderInput.value || "").trim(),
     filenameTemplate: (nameInput.value || "").trim() || "video"
   };
 
