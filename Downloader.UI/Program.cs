@@ -98,15 +98,6 @@ app.MapPost("/api/download-start", (DownloadUiRequest request, DownloadCoordinat
     }
 
     var normalizedUri = NormalizeSourceUri(uri, request.Site);
-    if (IsHostedMode() && IsCloudBlockedSite(request.Site))
-    {
-        return Results.BadRequest(new
-        {
-            ok = false,
-            error = "YouTube download is blocked on cloud hosting. Run desktop/local mode for YouTube."
-        });
-    }
-
     var outputPath = ResolveOutputPath(request.OutputPath);
     Directory.CreateDirectory(outputPath);
 
