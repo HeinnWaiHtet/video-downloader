@@ -17,6 +17,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     npm \
     ca-certificates \
     curl \
+    && ln -s /usr/bin/nodejs /usr/local/bin/node \
     && rm -rf /var/lib/apt/lists/*
 
 RUN curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp \

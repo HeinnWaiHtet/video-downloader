@@ -18,7 +18,8 @@ public sealed class YtDlpDownloadEngine : IDownloadEngine
 
     public async Task<MediaInfo> ProbeAsync(PageContext context, CancellationToken cancellationToken)
     {
-        var output = await RunProcessAsync($"--no-playlist --skip-download --dump-single-json \"{context.SourceUrl}\"", cancellationToken);
+        var args = $"--no-playlist --skip-download --extractor-args \"youtube:player_client=ios,web\" --dump-single-json \"{context.SourceUrl}\"";
+        var output = await RunProcessAsync(args, cancellationToken);
         if (output.ExitCode != 0)
         {
             return MediaInfo.Blocked("yt_dlp_probe_failed", output.Stderr.Trim());
@@ -47,7 +48,7 @@ public sealed class YtDlpDownloadEngine : IDownloadEngine
         var outputTemplate = Path.Combine(request.OutputPath, $"{safeName}.%(ext)s");
         var format = ResolveFormatExpression(request.SelectedFormatId);
 
-        var args = $"--no-playlist --newline --progress --force-overwrites --no-part -f \"{format}\" -o \"{outputTemplate}\" \"{request.SourceUrl}\"";
+        var args = $"--no-playlist --newline --progress --force-overwrites --no-part --extractor-args \"youtube:player_client=ios,web\" -f \"{format}\" -o \"{outputTemplate}\" \"{request.SourceUrl}\"";
 
         var process = new Process
         {
