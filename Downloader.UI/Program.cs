@@ -83,9 +83,8 @@ app.MapPost("/api/download-start", (DownloadUiRequest request, DownloadCoordinat
         return Results.BadRequest(new { ok = false, error = "Invalid URL." });
     }
 
-    var outputPath = string.IsNullOrWhiteSpace(request.OutputPath)
-        ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads")
-        : request.OutputPath;
+    var outputPath = ResolveOutputPath(request.OutputPath);
+    Directory.CreateDirectory(outputPath);
 
     var sessionId = Guid.NewGuid().ToString("N");
     var session = store.Create(sessionId);
@@ -170,6 +169,39 @@ Console.WriteLine(debugLogsEnabled
     : "Tip: run with UI_DEBUG=1 to see verbose ASP.NET request logs.");
 
 app.Run();
+
+static string ResolveOutputPath(string? requestedPath)
+{
+    var isRender = !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("RENDER"));
+    if (isRender)
+    {
+        return Path.Combine(Path.GetTempPath(), "authorized-downloader");
+    }
+
+    if (!string.IsNullOrWhiteSpace(requestedPath))
+    {
+        try
+        {
+            var full = Path.GetFullPath(requestedPath);
+            if (Directory.Exists(full))
+            {
+                return full;
+            }
+        }
+        catch
+        {
+            // Fall through to default.
+        }
+    }
+
+    var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+    if (!string.IsNullOrWhiteSpace(userProfile))
+    {
+        return Path.Combine(userProfile, "Downloads");
+    }
+
+    return Path.Combine(Path.GetTempPath(), "authorized-downloader");
+}
 
 static async Task<PickFolderResult> TryPickFolderAsync(string? initialPath)
 {
