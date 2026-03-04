@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Downloader Desktop GUI</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="hero">
+        <h1>Downloader Desktop</h1>
+        <p>Paste URL, select quality, pick folder, then download.</p>
+      </section>
+
+      <section class="panel">
+        <div class="field full">
+          <label for="urlInput">Video URL</label>
+          <input id="urlInput" type="url" placeholder="https://www.youtube.com/watch?v=..." />
+        </div>
+
+        <div class="actions-row">
+          <span id="probeStatus" class="muted"></span>
+        </div>
+
+        <div class="grid">
+          <div class="field">
+            <label for="qualitySelect">Quality</label>
+            <select id="qualitySelect"></select>
+          </div>
+
+          <div class="field">
+            <label for="nameInput">File Name</label>
+            <input id="nameInput" type="text" placeholder="video" />
+          </div>
+        </div>
+
+        <div class="field full">
+          <label for="folderInput">Save Folder</label>
+          <div class="folder-row">
+            <input id="folderInput" type="text" placeholder="Default Downloads folder" />
+            <button id="browseBtn" class="btn">Browse</button>
+          </div>
+        </div>
+
+        <div class="actions-row">
+          <button id="downloadBtn" class="btn success">Download</button>
+          <button id="clearBtn" class="btn secondary">Clear</button>
+          <span id="downloadStatus" class="muted"></span>
+        </div>
+      </section>
+
+      <section class="panel logs-panel">
+        <h2>Download Logs</h2>
+        <pre id="logs"></pre>
+      </section>
+    </main>
+
+    <div id="resultModal" class="result-modal hidden" role="dialog" aria-modal="true">
+      <div class="result-card">
+        <h3 id="resultTitle">Done</h3>
+        <p id="resultMessage"></p>
+        <button id="resultOkBtn" class="btn primary">OK</button>
+      </div>
+    </div>
+
+    <script src="/app.js"></script>
+  </body>
+</html>

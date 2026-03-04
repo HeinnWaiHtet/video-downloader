@@ -1,0 +1,45 @@
+# macOS
+.DS_Store
+
+# IDE
+.vs/
+.vscode/
+.idea/
+
+# .NET build
+**/bin/
+**/obj/
+**/TestResults/
+
+# Rider/Resharper
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Logs
+*.log
+logs/
+
+# NuGet
+*.nupkg
+*.snupkg
+.nuget/
+packages/
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Vercel
+.vercel/
+
+# Local runtime artifacts
+runtime/
+*.pid
+
+# MAUI generated
+**/platforms/**/bin/
+**/platforms/**/obj/

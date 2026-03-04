@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="Downloader.Desktop.MainPage"
+             Title="Downloader Desktop">
+    <ContentPage.Resources>
+        <Style TargetType="Label" x:Key="FieldLabel">
+            <Setter Property="TextColor" Value="#334155" />
+            <Setter Property="FontFamily" Value="OpenSansSemibold" />
+            <Setter Property="FontSize" Value="13" />
+        </Style>
+        <Style TargetType="Entry">
+            <Setter Property="TextColor" Value="#0F172A" />
+            <Setter Property="PlaceholderColor" Value="#64748B" />
+            <Setter Property="BackgroundColor" Value="Transparent" />
+            <Setter Property="FontSize" Value="15" />
+            <Setter Property="HeightRequest" Value="40" />
+            <Setter Property="ClearButtonVisibility" Value="Never" />
+        </Style>
+        <Style TargetType="Picker">
+            <Setter Property="TextColor" Value="#0F172A" />
+            <Setter Property="TitleColor" Value="#64748B" />
+            <Setter Property="BackgroundColor" Value="Transparent" />
+            <Setter Property="FontSize" Value="15" />
+            <Setter Property="HeightRequest" Value="40" />
+        </Style>
+    </ContentPage.Resources>
+
+    <Grid RowDefinitions="Auto,*" BackgroundColor="#F4EFE4">
+        <Grid.GestureRecognizers>
+            <TapGestureRecognizer Tapped="OnRootTapped" />
+        </Grid.GestureRecognizers>
+        <Border Grid.Row="0"
+                Margin="16,16,16,8"
+                Padding="20"
+                StrokeShape="RoundRectangle 22"
+                BackgroundColor="#0D3B66">
+            <VerticalStackLayout Spacing="6">
+                <Label Text="Downloader Desktop"
+                       FontFamily="OpenSansSemibold"
+                       FontSize="28"
+                       TextColor="#FFF8E8" />
+                <Label Text="Native app for authorized video downloads"
+                       FontSize="14"
+                       TextColor="#FBD38D" />
+            </VerticalStackLayout>
+        </Border>
+
+        <ScrollView Grid.Row="1">
+            <VerticalStackLayout Padding="16" Spacing="12">
+                <Border Padding="16"
+                        StrokeShape="RoundRectangle 18"
+                        BackgroundColor="#FFFFFF"
+                        Stroke="#D7CDB7">
+                    <VerticalStackLayout Spacing="12">
+                        <Label Text="Download Setup" FontFamily="OpenSansSemibold" FontSize="18" TextColor="#0F172A" />
+
+                        <VerticalStackLayout Spacing="6">
+                            <Label Text="Video URL" Style="{StaticResource FieldLabel}" />
+                            <Border BackgroundColor="#FFFFFF" Stroke="#CBD5E1" StrokeThickness="1.4" StrokeShape="RoundRectangle 10" Padding="10,6">
+                                <Entry x:Name="UrlEntry" Placeholder="https://www.youtube.com/watch?v=..." Unfocused="OnUrlEntryUnfocused" />
+                            </Border>
+                        </VerticalStackLayout>
+
+                        <Label x:Name="ProbeStatusLabel"
+                               Text="Ready"
+                               FontSize="13"
+                               TextColor="#556070" />
+
+                        <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+                            <VerticalStackLayout Grid.Column="0" Spacing="6">
+                                <Label Text="Quality" Style="{StaticResource FieldLabel}" />
+                                <Border BackgroundColor="#FFFFFF" Stroke="#CBD5E1" StrokeThickness="1.4" StrokeShape="RoundRectangle 10" Padding="10,6">
+                                    <Picker x:Name="QualityPicker" Title="Select quality" />
+                                </Border>
+                            </VerticalStackLayout>
+
+                            <VerticalStackLayout Grid.Column="1" Spacing="6">
+                                <Label Text="File Name" Style="{StaticResource FieldLabel}" />
+                                <Border BackgroundColor="#FFFFFF" Stroke="#CBD5E1" StrokeThickness="1.4" StrokeShape="RoundRectangle 10" Padding="10,6">
+                                    <Entry x:Name="NameEntry" Placeholder="video" />
+                                </Border>
+                            </VerticalStackLayout>
+                        </Grid>
+
+                        <VerticalStackLayout Spacing="6">
+                            <Label Text="Save Folder" Style="{StaticResource FieldLabel}" />
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                <Border Grid.Column="0" BackgroundColor="#FFFFFF" Stroke="#CBD5E1" StrokeThickness="1.4" StrokeShape="RoundRectangle 10" Padding="10,6">
+                                    <Entry x:Name="FolderEntry" Placeholder="Default Downloads folder" />
+                                </Border>
+                                <Button Grid.Column="1"
+                                        x:Name="BrowseButton"
+                                        Text="Browse"
+                                        Clicked="OnBrowseClicked"
+                                        CornerRadius="10"
+                                        FontSize="16"
+                                        BackgroundColor="#0B7285"
+                                        TextColor="White"
+                                        Padding="16,10" />
+                            </Grid>
+                        </VerticalStackLayout>
+
+                        <HorizontalStackLayout Spacing="10">
+                            <Button x:Name="DownloadButton"
+                                    Text="Download"
+                                    Clicked="OnDownloadClicked"
+                                    BackgroundColor="#2B8A3E"
+                                    TextColor="White"
+                                    CornerRadius="10"
+                                    FontSize="16"
+                                    HorizontalOptions="FillAndExpand" />
+                            <Button x:Name="ClearButton"
+                                    Text="Clear"
+                                    Clicked="OnClearClicked"
+                                    BackgroundColor="#F59F00"
+                                    TextColor="#1F2937"
+                                    CornerRadius="10"
+                                    FontSize="16"
+                                    HorizontalOptions="FillAndExpand" />
+                        </HorizontalStackLayout>
+
+                        <Label x:Name="DownloadStatusLabel"
+                               Text="Idle"
+                               FontSize="13"
+                               TextColor="#556070" />
+
+                        <ProgressBar x:Name="DownloadProgressBar" Progress="0" ProgressColor="#FF922B" HeightRequest="8" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <Border Padding="16"
+                        StrokeShape="RoundRectangle 18"
+                        BackgroundColor="#1F2937"
+                        Stroke="#223047">
+                    <VerticalStackLayout Spacing="8">
+                        <Label Text="Logs" FontFamily="OpenSansSemibold" FontSize="16" TextColor="#E5E7EB" />
+                        <Editor x:Name="LogsEditor"
+                                AutoSize="TextChanges"
+                                HeightRequest="220"
+                                IsReadOnly="True"
+                                TextColor="#D1FAE5"
+                                BackgroundColor="#111827"
+                                FontFamily="OpenSansRegular" />
+                    </VerticalStackLayout>
+                </Border>
+            </VerticalStackLayout>
+        </ScrollView>
+    </Grid>
+</ContentPage>

@@ -1,0 +1,26 @@
+{
+  "manifest_version": 3,
+  "name": "Authorized Video Downloader",
+  "description": "Injects a download button and sends authorized downloads to native C# host.",
+  "version": "1.0.0",
+  "permissions": ["nativeMessaging", "storage", "activeTab"],
+  "host_permissions": [
+    "https://youtube.com/*",
+    "https://*.youtube.com/*",
+    "https://youtu.be/*",
+    "https://facebook.com/*",
+    "https://*.facebook.com/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "options_page": "options.html"
+}
