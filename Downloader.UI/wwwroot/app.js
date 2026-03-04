@@ -172,7 +172,7 @@ const startPolling = () => {
         downloadBtn.disabled = false;
         const target = Array.isArray(data.files) && data.files.length > 0
           ? data.files[0]
-          : (folderInput.value || state.serverOutputFolder || "Downloads");
+          : (data.outputPath || folderInput.value || state.serverOutputFolder || "Downloads");
         showResultModal("Download Completed", `Saved to:\n${target}`);
       }
 
@@ -304,7 +304,7 @@ const initMode = async () => {
 
     if (state.hostedMode) {
       folderInput.value = state.serverOutputFolder || "Server temp folder";
-      folderInput.readOnly = true;
+      folderInput.readOnly = false;
       browseBtn.disabled = false;
       browseBtn.title = "Choose folder label for server-side saved files.";
       setDownloadStatus("Cloud mode active: selected folder name maps to server storage.", false);

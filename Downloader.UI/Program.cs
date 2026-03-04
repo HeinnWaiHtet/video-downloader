@@ -57,7 +57,8 @@ app.MapGet("/api/health", () =>
         ok = true,
         runtime = Environment.Version.ToString(),
         hostedMode,
-        serverOutputFolder
+        serverOutputFolder,
+        downloadRoot = hostedMode ? ResolveHostedRoot() : null
     });
 });
 
@@ -111,6 +112,7 @@ app.MapPost("/api/download-start", (DownloadUiRequest request, DownloadCoordinat
 
     var sessionId = Guid.NewGuid().ToString("N");
     var session = store.Create(sessionId);
+    session.OutputPath = outputPath;
 
     _ = Task.Run(async () =>
     {
@@ -142,7 +144,7 @@ app.MapPost("/api/download-start", (DownloadUiRequest request, DownloadCoordinat
 
             await handle.Completion;
 
-            session.Files = handle.Artifacts?.ToArray() ?? Array.Empty<string>();
+            session.Files = ResolveCompletedFiles(outputPath, handle.Artifacts);
             session.Percent = 100;
             session.State = "Completed";
             session.Status = "Completed";
@@ -180,6 +182,7 @@ app.MapGet("/api/download-status/{sessionId}", (string sessionId, DownloadSessio
         status = session.Status,
         percent = session.Percent,
         error = session.Error,
+        outputPath = session.OutputPath,
         files = session.Files,
         logs = session.Logs.ToArray()
     });
@@ -209,7 +212,7 @@ static string ResolveOutputPath(string? requestedPath)
 {
     if (IsHostedMode())
     {
-        var hostedRoot = Path.Combine(Path.GetTempPath(), "authorized-downloader");
+        var hostedRoot = ResolveHostedRoot();
         if (string.IsNullOrWhiteSpace(requestedPath))
         {
             return hostedRoot;
@@ -255,6 +258,17 @@ static string ResolveOutputPath(string? requestedPath)
     return Path.Combine(Path.GetTempPath(), "authorized-downloader");
 }
 
+static string ResolveHostedRoot()
+{
+    var env = Environment.GetEnvironmentVariable("DOWNLOAD_ROOT");
+    if (!string.IsNullOrWhiteSpace(env))
+    {
+        return env.Trim();
+    }
+
+    return Path.Combine(Path.GetTempPath(), "authorized-downloader");
+}
+
 static string SanitizeFolderName(string value)
 {
     var result = string.IsNullOrWhiteSpace(value) ? "downloads" : value.Trim();
@@ -283,6 +297,32 @@ static string BuildFriendlyDownloadError(string rawMessage, ConcurrentQueue<stri
     }
 
     return rawMessage;
+}
+
+static string[] ResolveCompletedFiles(string outputPath, IReadOnlyCollection<string>? artifacts)
+{
+    var artifactList = artifacts?.Where(x => !string.IsNullOrWhiteSpace(x)).ToArray() ?? Array.Empty<string>();
+    if (artifactList.Length > 0)
+    {
+        var concreteFiles = artifactList.Where(File.Exists).ToArray();
+        if (concreteFiles.Length > 0)
+        {
+            return concreteFiles;
+        }
+    }
+
+    if (!Directory.Exists(outputPath))
+    {
+        return artifactList.Length > 0 ? artifactList : new[] { outputPath };
+    }
+
+    var recentFiles = Directory
+        .GetFiles(outputPath)
+        .OrderByDescending(File.GetLastWriteTimeUtc)
+        .Take(5)
+        .ToArray();
+
+    return recentFiles.Length > 0 ? recentFiles : new[] { outputPath };
 }
 
 static Uri NormalizeSourceUri(Uri source, string? siteHint)
@@ -451,6 +491,7 @@ internal sealed class DownloadSession
     public double Percent { get; set; }
     public string? Error { get; set; }
     public string? DownloadId { get; set; }
+    public string? OutputPath { get; set; }
     public string[] Files { get; set; } = Array.Empty<string>();
     public ConcurrentQueue<string> Logs { get; } = new();
 
