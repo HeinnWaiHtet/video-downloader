@@ -6,8 +6,7 @@ const state = {
   isProbing: false,
   lastProbedUrl: "",
   hostedMode: false,
-  serverOutputFolder: "",
-  directoryHandle: null // Added to store local folder reference
+  serverOutputFolder: ""
 };
 
 const urlInput = document.getElementById("urlInput");
@@ -174,19 +173,40 @@ const startPolling = () => {
         stopPolling();
         downloadBtn.disabled = false;
 
-        const filename = (data.files && data.files.length > 0)
-          ? data.files[0].split(/[/\\]/).pop()
-          : (nameInput.value || "video") + ".mp4";
-
         const target = Array.isArray(data.files) && data.files.length > 0
           ? data.files[0]
           : (data.outputPath || folderInput.value || state.serverOutputFolder || "Downloads");
 
         let message = `Saved to:\n${target}`;
         if (state.hostedMode) {
-          message += "\n\nNote: Download to your computer has been triggered automatically.";
-          // Auto-trigger the download
-          triggerLocalDownload(state.sessionId, filename);
+          message += "\n\nNote: File is stored on the server.";
+
+          // Add a direct download link to the modal
+          const card = resultModal.querySelector(".result-card");
+          const oldLink = card.querySelector(".download-link");
+          if (oldLink) oldLink.remove();
+
+          const dlLink = document.createElement("a");
+          dlLink.className = "btn primary download-link";
+          dlLink.style.textDecoration = "none";
+          dlLink.href = `/api/download-file/${state.sessionId}`;
+          dlLink.textContent = "Download to Local";
+          dlLink.target = "_blank";
+
+          // Align with OK button
+          let actions = card.querySelector(".modal-actions");
+          if (!actions) {
+            actions = document.createElement("div");
+            actions.className = "modal-actions";
+            actions.style.display = "flex";
+            actions.style.gap = "8px";
+            actions.style.marginTop = "16px";
+            actions.style.justifyContent = "center";
+            card.appendChild(actions);
+          }
+          actions.innerHTML = "";
+          actions.appendChild(dlLink);
+          actions.appendChild(resultOkBtn);
         }
 
         showResultModal("Download Completed", message);
@@ -208,7 +228,6 @@ browseBtn.addEventListener("click", async () => {
     if (typeof window.showDirectoryPicker === "function") {
       try {
         const handle = await window.showDirectoryPicker();
-        state.directoryHandle = handle;
         folderInput.value = `${BROWSER_FOLDER_PREFIX} ${handle.name}`;
         setDownloadStatus("Folder selected in browser.", false);
       } catch (error) {
@@ -307,36 +326,6 @@ resultModal.addEventListener("click", (e) => {
     hideResultModal();
   }
 });
-
-const triggerLocalDownload = async (sessionId, filename) => {
-  try {
-    const url = `/api/download-file/${sessionId}`;
-
-    // If we have a directory handle, use File System Access API to save directly
-    if (state.directoryHandle && typeof state.directoryHandle.getFileHandle === 'function') {
-      const response = await fetch(url);
-      if (!response.ok) throw new Error("Failed to fetch file from server.");
-
-      const fileHandle = await state.directoryHandle.getFileHandle(filename, { create: true });
-      const writable = await fileHandle.createWritable();
-      await response.body.pipeTo(writable);
-      console.log(`Saved ${filename} to ${state.directoryHandle.name}`);
-      return;
-    }
-
-    // Fallback: Standard browser download via <a> tag
-    const dlLink = document.createElement("a");
-    dlLink.href = url;
-    dlLink.download = filename;
-    dlLink.style.display = "none";
-    document.body.appendChild(dlLink);
-    dlLink.click();
-    setTimeout(() => dlLink.remove(), 100);
-  } catch (error) {
-    console.error("Local download trigger failed:", error);
-    setDownloadStatus("Auto-download failed. You can try manually from browser logs.", true);
-  }
-};
 
 const initMode = async () => {
   // ... existing initMode code ...
