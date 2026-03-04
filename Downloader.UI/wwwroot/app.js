@@ -267,10 +267,6 @@ downloadBtn.addEventListener("click", async () => {
     setDownloadStatus("Video not loaded. Leave URL field to load first.", true);
     return;
   }
-  if (state.hostedMode && String(state.site).toLowerCase() === "youtube") {
-    setDownloadStatus("YouTube download is blocked on cloud hosting. Use desktop/local mode.", true);
-    return;
-  }
 
   const payload = {
     url: (urlInput.value || "").trim(),
