@@ -4,7 +4,9 @@ const state = {
   sessionId: null,
   pollTimer: null,
   isProbing: false,
-  lastProbedUrl: ""
+  lastProbedUrl: "",
+  hostedMode: false,
+  serverOutputFolder: ""
 };
 
 const urlInput = document.getElementById("urlInput");
@@ -85,7 +87,7 @@ const clearForm = () => {
   state.lastProbedUrl = "";
   urlInput.value = "";
   nameInput.value = "";
-  folderInput.value = "";
+  folderInput.value = state.hostedMode ? state.serverOutputFolder : "";
   setFormats([{ id: "best", label: "Best available" }]);
   setProbeStatus("Ready");
   setDownloadStatus("Idle");
@@ -160,7 +162,9 @@ const startPolling = () => {
       if (data.state === "Completed") {
         stopPolling();
         downloadBtn.disabled = false;
-        const target = Array.isArray(data.files) && data.files.length > 0 ? data.files[0] : (folderInput.value || "Downloads");
+        const target = Array.isArray(data.files) && data.files.length > 0
+          ? data.files[0]
+          : (folderInput.value || state.serverOutputFolder || "Downloads");
         showResultModal("Download Completed", `Saved to:\n${target}`);
       }
 
@@ -175,6 +179,11 @@ const startPolling = () => {
 };
 
 browseBtn.addEventListener("click", async () => {
+  if (state.hostedMode) {
+    setDownloadStatus("Cloud mode: files save on server. Local folder browse is not available.", true);
+    return;
+  }
+
   browseBtn.disabled = true;
   try {
     if (typeof window.showDirectoryPicker === "function") {
@@ -224,7 +233,7 @@ downloadBtn.addEventListener("click", async () => {
     url: (urlInput.value || "").trim(),
     site: state.site,
     selectedFormatId: qualitySelect.value || "best",
-    outputPath: isBrowserFolderLabel(folderInput.value) ? "" : (folderInput.value || "").trim(),
+    outputPath: state.hostedMode ? "" : (isBrowserFolderLabel(folderInput.value) ? "" : (folderInput.value || "").trim()),
     filenameTemplate: (nameInput.value || "").trim() || "video"
   };
 
@@ -271,5 +280,29 @@ resultModal.addEventListener("click", (e) => {
   }
 });
 
+const initMode = async () => {
+  try {
+    const res = await fetch("/api/health");
+    const data = await res.json();
+    if (!res.ok || !data.ok) {
+      return;
+    }
+
+    state.hostedMode = Boolean(data.hostedMode);
+    state.serverOutputFolder = data.serverOutputFolder || "";
+
+    if (state.hostedMode) {
+      folderInput.value = state.serverOutputFolder || "Server temp folder";
+      folderInput.readOnly = true;
+      browseBtn.disabled = true;
+      browseBtn.title = "Cloud mode does not support local folder picker.";
+      setDownloadStatus("Cloud mode active: files are saved on the server.", false);
+    }
+  } catch {
+    // Ignore health check issues for initial render.
+  }
+};
+
 setFormats([{ id: "best", label: "Best available" }]);
 setLogs([]);
+void initMode();

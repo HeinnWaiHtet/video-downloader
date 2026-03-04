@@ -13,6 +13,8 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     python3 \
+    nodejs \
+    npm \
     ca-certificates \
     curl \
     && rm -rf /var/lib/apt/lists/*

@@ -47,7 +47,18 @@ var app = builder.Build();
 app.UseDefaultFiles();
 app.UseStaticFiles();
 
-app.MapGet("/api/health", () => Results.Ok(new { ok = true, runtime = Environment.Version.ToString() }));
+app.MapGet("/api/health", () =>
+{
+    var hostedMode = IsHostedMode();
+    var serverOutputFolder = ResolveOutputPath(null);
+    return Results.Ok(new
+    {
+        ok = true,
+        runtime = Environment.Version.ToString(),
+        hostedMode,
+        serverOutputFolder
+    });
+});
 
 app.MapPost("/api/probe", async (ProbeUiRequest request, DownloadCoordinator coordinator) =>
 {
@@ -129,12 +140,13 @@ app.MapPost("/api/download-start", (DownloadUiRequest request, DownloadCoordinat
         }
         catch (Exception ex)
         {
+            var friendly = BuildFriendlyDownloadError(ex.Message, session.Logs);
             session.State = "Failed";
-            session.Status = ex.Message;
-            session.Error = ex.Message;
-            session.Logs.Enqueue($"[Failed] {ex.Message}");
+            session.Status = friendly;
+            session.Error = friendly;
+            session.Logs.Enqueue($"[Failed] {friendly}");
             session.TrimLogs();
-            Console.WriteLine($"[UI-DL {sessionId}] Failed: {ex.Message}");
+            Console.WriteLine($"[UI-DL {sessionId}] Failed: {friendly}");
         }
     });
 
@@ -170,10 +182,15 @@ Console.WriteLine(debugLogsEnabled
 
 app.Run();
 
+static bool IsHostedMode()
+{
+    return !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("RENDER"))
+        || !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("VERCEL"));
+}
+
 static string ResolveOutputPath(string? requestedPath)
 {
-    var isRender = !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("RENDER"));
-    if (isRender)
+    if (IsHostedMode())
     {
         return Path.Combine(Path.GetTempPath(), "authorized-downloader");
     }
@@ -201,6 +218,24 @@ static string ResolveOutputPath(string? requestedPath)
     }
 
     return Path.Combine(Path.GetTempPath(), "authorized-downloader");
+}
+
+static string BuildFriendlyDownloadError(string rawMessage, ConcurrentQueue<string> logs)
+{
+    var lines = logs.ToArray();
+    var joined = string.Join('\n', lines).ToLowerInvariant();
+    if (joined.Contains("sign in to confirm you’re not a bot")
+        || joined.Contains("sign in to confirm you're not a bot"))
+    {
+        return "Download blocked by YouTube anti-bot/auth checks on cloud hosting. Use local desktop/host mode for this video.";
+    }
+
+    if (joined.Contains("no supported javascript runtime could be found"))
+    {
+        return "Download engine missing JavaScript runtime support on server.";
+    }
+
+    return rawMessage;
 }
 
 static async Task<PickFolderResult> TryPickFolderAsync(string? initialPath)
