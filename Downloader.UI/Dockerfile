@@ -1,9 +1,11 @@
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 
-COPY . .
-RUN dotnet restore Downloader.UI.csproj
-RUN dotnet publish Downloader.UI.csproj -c Release -o /app/publish
+COPY Downloader.Core/ ./Downloader.Core/
+COPY Downloader.UI/ ./Downloader.UI/
+
+RUN dotnet restore Downloader.UI/Downloader.UI.csproj
+RUN dotnet publish Downloader.UI/Downloader.UI.csproj -c Release -o /app/publish --no-restore
 
 FROM mcr.microsoft.com/dotnet/aspnet:8.0
 WORKDIR /app
