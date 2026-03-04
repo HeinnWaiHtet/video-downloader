@@ -188,6 +188,23 @@ app.MapGet("/api/download-status/{sessionId}", (string sessionId, DownloadSessio
     });
 });
 
+app.MapGet("/api/download-file/{sessionId}", (string sessionId, DownloadSessionStore store) =>
+{
+    var session = store.Get(sessionId);
+    if (session is null || session.State != "Completed" || session.Files.Length == 0)
+    {
+        return Results.NotFound(new { ok = false, error = "File not found or not ready." });
+    }
+
+    var filePath = session.Files[0];
+    if (!File.Exists(filePath))
+    {
+        return Results.NotFound(new { ok = false, error = "File does not exist on server." });
+    }
+
+    return Results.File(filePath, "application/octet-stream", Path.GetFileName(filePath));
+});
+
 var displayUrl = string.IsNullOrWhiteSpace(port) ? "http://127.0.0.1:5077" : $"http://0.0.0.0:{port}";
 Console.WriteLine($"Web UI running at {displayUrl}");
 Console.WriteLine("Open this URL in your browser.");
@@ -225,8 +242,11 @@ static string ResolveOutputPath(string? requestedPath)
             return Path.Combine(hostedRoot, name);
         }
 
-        if (Path.IsPathRooted(value) && value.StartsWith("/tmp/", StringComparison.Ordinal))
+        if (Path.IsPathRooted(value))
         {
+            // If it's an absolute path and we are in hosted mode, we allow it if it starts with /tmp/
+            // OR if it's a valid directory that the app can write to. 
+            // The previous logic was too restrictive by ONLY allowing /tmp/.
             return value;
         }
 

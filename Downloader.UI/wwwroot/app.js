@@ -70,6 +70,8 @@ const showResultModal = (title, message) => {
 
 const hideResultModal = () => {
   resultModal.classList.add("hidden");
+  const dlLink = resultModal.querySelector(".download-link");
+  if (dlLink) dlLink.remove();
 };
 
 const stopPolling = () => {
@@ -173,7 +175,29 @@ const startPolling = () => {
         const target = Array.isArray(data.files) && data.files.length > 0
           ? data.files[0]
           : (data.outputPath || folderInput.value || state.serverOutputFolder || "Downloads");
-        showResultModal("Download Completed", `Saved to:\n${target}`);
+
+        let message = `Saved to:\n${target}`;
+        if (state.hostedMode) {
+          message += "\n\nNote: File is stored on the server.";
+
+          // Add a direct download link to the modal
+          const card = resultModal.querySelector(".result-card");
+          const oldLink = card.querySelector(".download-link");
+          if (oldLink) oldLink.remove();
+
+          const dlLink = document.createElement("a");
+          dlLink.className = "btn primary download-link";
+          dlLink.style.display = "block";
+          dlLink.style.textAlign = "center";
+          dlLink.style.marginTop = "10px";
+          dlLink.style.textDecoration = "none";
+          dlLink.href = `/api/download-file/${state.sessionId}`;
+          dlLink.textContent = "Download to Computer";
+          dlLink.target = "_blank";
+          card.insertBefore(dlLink, resultOkBtn);
+        }
+
+        showResultModal("Download Completed", message);
       }
 
       if (data.state === "Failed") {
