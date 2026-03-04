@@ -94,6 +94,15 @@ app.MapPost("/api/download-start", (DownloadUiRequest request, DownloadCoordinat
         return Results.BadRequest(new { ok = false, error = "Invalid URL." });
     }
 
+    if (IsHostedMode() && IsCloudBlockedSite(request.Site))
+    {
+        return Results.BadRequest(new
+        {
+            ok = false,
+            error = "YouTube download is blocked on cloud hosting. Run desktop/local mode for YouTube."
+        });
+    }
+
     var outputPath = ResolveOutputPath(request.OutputPath);
     Directory.CreateDirectory(outputPath);
 
@@ -186,6 +195,11 @@ static bool IsHostedMode()
 {
     return !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("RENDER"))
         || !string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("VERCEL"));
+}
+
+static bool IsCloudBlockedSite(string? site)
+{
+    return string.Equals(site, "youtube", StringComparison.OrdinalIgnoreCase);
 }
 
 static string ResolveOutputPath(string? requestedPath)
